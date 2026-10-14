@@ -7,7 +7,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>MOBIKS Döşeme Takip v8</title>
+<title>MOBIKS Döşeme Takip v8.1</title>
 <style>
 :root{--bg:#0f1419;--panel:#1a1f2e;--panel2:#232838;--border:#2a3142;--text:#e8eaed;--muted:#8b93a7;--accent:#4a9eff;--green:#4ade80;--red:#f87171;--orange:#fb923c;--yellow:#fbbf24;--purple:#a78bfa;--mavi:#3b82f6}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -214,6 +214,10 @@ let API_URL = localStorage.getItem('mobiks_api_url') || VARSAYILAN_API_URL;
 let PIN = localStorage.getItem('mobiks_pin') || '';
 let KULLANICI_ADI = localStorage.getItem('mobiks_user_name') || '';
 let DATA = [];
+let SON_VERI = '';          // son gelen verinin özeti: değişmediyse ekran yeniden çizilmez
+const KART = new Map();     // ID -> {imza, el}: değişmeyen kart yeniden oluşturulmaz
+// Kart tıklamaları güncel veri nesnesine yazsın (veri yenilenince eski nesne kalmasın)
+const guncel = (d) => DATA.find(x => x.ID === d.ID) || d;
 let aktivFiltre = 'all';
 let aramaText = '';
 
@@ -312,9 +316,13 @@ async function yukle() {
     const r = await fetch(API_URL + '?action=list');
     const j = await r.json();
     if (j.error) throw new Error(j.error);
-    DATA = j.rows || [];
+    const ozet = JSON.stringify(j.rows || []);
     setStatus('Güncel ' + new Date().toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'}));
-    render();
+    if (ozet !== SON_VERI) {      // sadece veri değiştiyse ekrana dokun
+      SON_VERI = ozet;
+      DATA = j.rows || [];
+      render();
+    }
   } catch (e) {
     setStatus('Bağlantı hatası', false);
     toast('Hata: ' + e.message, 'err');
@@ -397,7 +405,6 @@ function render() {
   if (typeof setupSectionGuncelle === 'function') setupSectionGuncelle();
 
   const container = $('cards-container');
-  container.innerHTML = '';
   const arama = aramaText.toLocaleLowerCase('tr-TR').trim();
 
   const filtreli = DATA.filter(d => {
@@ -411,6 +418,7 @@ function render() {
 
   if (filtreli.length === 0) {
     container.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>Bu filtrede satır yok</div>';
+    KART.clear();
     return;
   }
 
@@ -429,7 +437,22 @@ function render() {
     return (a.SIP_NO || '').toString().localeCompare((b.SIP_NO || '').toString());
   });
 
-  filtreli.forEach(d => container.appendChild(kartYap(d)));
+  // Sadece değişen kartı yeniden oluştur; değişmeyenler olduğu gibi kalır
+  const giris = PIN ? '1' : '0';
+  const sira = filtreli.map(d => {
+    const imza = giris + JSON.stringify(d);
+    let k = KART.get(d.ID);
+    if (!k || k.imza !== imza) {
+      k = {imza: imza, el: kartYap(d)};
+      KART.set(d.ID, k);
+    }
+    return k.el;
+  });
+  const gorunen = new Set(filtreli.map(d => d.ID));
+  for (const id of KART.keys()) if (!gorunen.has(id)) KART.delete(id);
+  const mevcut = container.children;
+  const ayni = mevcut.length === sira.length && sira.every((el, i) => mevcut[i] === el);
+  if (!ayni) container.replaceChildren(...sira);
 }
 
 function parseStage(s) {
@@ -504,9 +527,9 @@ function notKutusu(d) {
       if (yeni_not) {
         const now = new Date();
         const dt = String(now.getDate()).padStart(2,'0') + '.' + String(now.getMonth()+1).padStart(2,'0') + ' ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-        d.USTA_NOT = yeni_not + ' (' + KULLANICI_ADI + ' ' + dt + ')';
+        guncel(d).USTA_NOT = yeni_not + ' (' + KULLANICI_ADI + ' ' + dt + ')';
       } else {
-        d.USTA_NOT = '';
+        guncel(d).USTA_NOT = '';
       }
       toast(yeni_not ? '✓ Not kaydedildi' : 'Not silindi', 'ok');
       render();
@@ -573,9 +596,9 @@ function stageButonu(d, stageKey, ikon, lbl) {
         const now = new Date();
         const ymd = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
         const hm = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-        d[colMap[stageKey]] = ymd + ' ' + hm + ' ' + KULLANICI_ADI;
+        guncel(d)[colMap[stageKey]] = ymd + ' ' + hm + ' ' + KULLANICI_ADI;
       } else {
-        d[colMap[stageKey]] = '';
+        guncel(d)[colMap[stageKey]] = '';
       }
       render();
     } catch (e) {
