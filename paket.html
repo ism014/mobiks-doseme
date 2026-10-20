@@ -164,9 +164,11 @@ function kartGoster(d, belirsiz) {
   SECILI = d;
   const kalan = Number(d.KALAN || d.ADET || 0);
   const paketli = !!d.PAKETLENDI_TARIH;
+  const kismi = Number(d.PAKET_ADET || 0);
+  const kalanKoli = Math.max(kalan - kismi, 0);
   $('sonuc').innerHTML =
     '<div class="panel" style="margin-top:12px">' +
-    '<span class="durum' + (paketli ? ' paket' : '') + '">' + (paketli ? '✓ Zaten paketlendi: ' + esc(String(d.PAKETLENDI_TARIH).slice(0, 16)) : 'Paketlenmedi') + '</span>' +
+    '<span class="durum' + (paketli ? ' paket' : '') + '">' + (paketli ? '✓ Zaten paketlendi: ' + esc(String(d.PAKETLENDI_TARIH).slice(0, 16)) : (kismi ? '📦 Kısmi: ' + kismi + ' / ' + kalan + ' paketli' : 'Paketlenmedi')) + '</span>' +
     '<div class="urun">' + esc(d.URUN) + '</div>' +
     '<div class="grid">' +
     '<div class="k">Sipariş</div><div>' + esc(d.SIP_NO) + '</div>' +
@@ -174,12 +176,14 @@ function kartGoster(d, belirsiz) {
     '<div class="k">Kumaş</div><div>' + esc(d.KUMAS) + '</div>' +
     '<div class="k">Cila</div><div>' + esc(d.CILA || '-') + '</div>' +
     '<div class="k">Bekleyen</div><div><b>' + kalan + ' adet</b></div>' +
+    '<div class="k">Paketli</div><div><b>' + kismi + ' / ' + kalan + '</b>' + (kismi ? ' <span class="sub">(' + kalanKoli + ' kaldı)</span>' : '') + '</div>' +
     '</div>' +
     (belirsiz ? '<div class="uyari">Kumaş tam eşleşmedi, ürünü kontrol et.</div>' : '') +
     '<div class="adet-row"><button class="btn pm" onclick="adetDegis(-1)">−</button>' +
-    '<input type="number" inputmode="numeric" id="adet" value="' + kalan + '" min="1">' +
+    '<input type="number" inputmode="numeric" id="adet" value="' + (kalanKoli || kalan) + '" min="1">' +
     '<button class="btn pm" onclick="adetDegis(1)">+</button><span class="sub">adet koli</span></div>' +
     '<button class="btn-ok" id="isaretle-btn" onclick="isaretle()">✓ PAKETLENDİ</button>' +
+    '<button class="btn" style="width:100%;margin-top:8px" onclick="duzelt()">✎ Paketli adedi düzelt</button>' +
     '<button class="btn" style="width:100%;margin-top:8px" onclick="$(\'sonuc\').innerHTML=\'\'">Vazgeç</button>' +
     '</div>';
   window.scrollTo(0, document.getElementById('sonuc').offsetTop - 10);
@@ -189,21 +193,38 @@ function adetDegis(n) { const i = $('adet'); i.value = Math.max(1, (Number(i.val
 async function isaretle() {
   const d = SECILI; if (!d) return;
   const adet = Number($('adet').value) || 0;
-  const kalan = Number(d.KALAN || d.ADET || 0);
   if (adet < 1) return;
-  if (adet < kalan && !confirm(adet + ' / ' + kalan + ' adet paketlendi. Ürün "paketlendi" olarak işaretlenecek, devam?')) return;
-  $('isaretle-btn').disabled = true; $('isaretle-btn').textContent = 'Kaydediliyor...';
+  await paketGonder(d, adet, 'ekle');
+}
+
+async function duzelt() {
+  const d = SECILI; if (!d) return;
+  const kalan = Number(d.KALAN || d.ADET || 0);
+  const v = prompt('Bu üründen TOPLAM kaç adet paketli? (0-' + kalan + ')', String(Number(d.PAKET_ADET || 0)));
+  if (v === null) return;
+  const n = Math.floor(Number(v));
+  if (!(n >= 0)) { alert('Sayı gir'); return; }
+  await paketGonder(d, n, 'set');
+}
+
+async function paketGonder(d, adet, mod) {
+  const btn = $('isaretle-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Kaydediliyor...'; }
   try {
-    const j = await api({action: 'update', id: d.ID, stage: 'paket', value: 'true', pin: PIN});
+    const j = await api({action: 'paket', id: d.ID, adet: adet, mod: mod, pin: PIN});
     if (j.error) throw new Error(j.error);
     const g = JSON.parse(ls.get('mobiks_paket_gecmis', '[]'));
-    g.unshift({t: new Date().toISOString(), sip: d.SIP_NO, mus: d.MUSTERI, urun: d.URUN, kumas: d.KUMAS, adet, kalan});
+    g.unshift({t: new Date().toISOString(), sip: d.SIP_NO, mus: d.MUSTERI, urun: d.URUN, kumas: d.KUMAS,
+               adet: mod === 'set' ? 0 : adet, toplam: j.paket_adet, kalan: j.kalan, duzelt: mod === 'set'});
     ls.set('mobiks_paket_gecmis', JSON.stringify(g.slice(0, 200)));
-    $('sonuc').innerHTML = '<div class="panel basari">✓ ' + esc(d.URUN) + '<br><span style="font-size:16px">' + adet + ' adet paketlendi</span></div>';
+    const yazi = j.tamam ? '✓ TAMAMLANDI · ' + j.paket_adet + ' / ' + j.kalan + ' paketli'
+                         : '📦 ' + j.paket_adet + ' / ' + j.kalan + ' paketli · ' + Math.max(j.kalan - j.paket_adet, 0) + ' kaldı';
+    $('sonuc').innerHTML = '<div class="panel basari">' + esc(d.URUN) + '<br><span style="font-size:17px">' +
+      (mod === 'set' ? 'Düzeltildi · ' : '+' + adet + ' adet · ') + yazi + '</span></div>';
     gecmisCiz();
     yukle().catch(() => {});
   } catch (e) {
-    $('isaretle-btn').disabled = false; $('isaretle-btn').textContent = '✓ PAKETLENDİ';
+    if (btn) { btn.disabled = false; btn.textContent = '✓ PAKETLENDİ'; }
     $('sonuc').insertAdjacentHTML('beforeend', '<div class="hata">' + esc(e.message) + '</div>');
     if (String(e.message).includes('Yetki')) cikis();
   }
@@ -212,8 +233,9 @@ async function isaretle() {
 function gecmisCiz() {
   const g = JSON.parse(ls.get('mobiks_paket_gecmis', '[]')).filter(x => x.t.slice(0, 10) === bugun());
   $('gecmis').innerHTML = g.length ? g.map(x =>
-    '<div>' + new Date(x.t).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'}) + ' · <b>' + x.adet + (x.adet < x.kalan ? '/' + x.kalan : '') +
-    ' ad.</b> ' + esc(x.urun) + ' · ' + esc(x.kumas) + ' · ' + esc(x.sip) + ' ' + esc(x.mus) + '</div>').join('') +
+    '<div>' + new Date(x.t).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'}) + ' · <b>' +
+    (x.duzelt ? 'düzeltme' : '+' + x.adet + ' ad.') + '</b> (' + (x.toplam ?? x.adet) + '/' + x.kalan + ') ' +
+    esc(x.urun) + ' · ' + esc(x.kumas) + ' · ' + esc(x.sip) + ' ' + esc(x.mus) + '</div>').join('') +
     '<div style="border:0;padding-top:8px"><b>Toplam: ' + g.reduce((a, x) => a + x.adet, 0) + ' adet</b></div>' : 'Henüz yok';
 }
 
@@ -222,7 +244,8 @@ function araCiz() {
   if (q.length < 2) { $('ara-liste').innerHTML = ''; return; }
   const s = DATA.filter(d => [d.SIP_NO, d.MUSTERI, d.URUN, d.KUMAS].join(' ').toLocaleLowerCase('tr-TR').includes(q)).slice(0, 30);
   $('ara-liste').innerHTML = s.map(d => '<div data-id="' + esc(d.ID) + '">' + (d.PAKETLENDI_TARIH ? '✓ ' : '') + '<b>' + esc(d.URUN) + '</b> · ' +
-    esc(d.KUMAS) + '<br><span class="sub">' + esc(d.SIP_NO) + ' · ' + esc(d.MUSTERI) + ' · ' + (d.KALAN || d.ADET) + ' adet</span></div>').join('') || '<div>Bulunamadı</div>';
+    esc(d.KUMAS) + '<br><span class="sub">' + esc(d.SIP_NO) + ' · ' + esc(d.MUSTERI) + ' · ' + (d.KALAN || d.ADET) + ' adet' +
+    (d.PAKET_ADET && !d.PAKETLENDI_TARIH ? ' · 📦 ' + d.PAKET_ADET + ' paketli' : '') + '</span></div>').join('') || '<div>Bulunamadı</div>';
   $('ara-liste').querySelectorAll('[data-id]').forEach(el => el.onclick = () => kartGoster(DATA.find(d => d.ID === el.dataset.id), false));
 }
 

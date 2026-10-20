@@ -631,7 +631,7 @@ function stageButonu(d, stageKey, ikon, lbl) {
   btn.className = 'stage-btn' + (done ? ' done' : '') + (locked ? ' locked' : '');
   btn.innerHTML = '<div class="stage-icon">' + ikon + '</div>' +
     '<div class="stage-lbl">' + lbl + '</div>' +
-    '<div class="stage-time">' + (veri ? veri.tarih : '') + '</div>' +
+    '<div class="stage-time">' + (veri ? veri.tarih : (stageKey === 'paket' && Number(d.PAKET_ADET) > 0 ? '📦 ' + d.PAKET_ADET + '/' + (d.KALAN || d.ADET) + ' kısmi' : '')) + '</div>' +
     '<div class="stage-by">' + (veri && veri.isim ? veri.isim : '') + '</div>';
   btn.addEventListener('click', async () => {
     if (locked) { toast('Önce 🔑 Giriş yap', 'err'); return; }
