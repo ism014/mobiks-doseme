@@ -401,7 +401,7 @@ function urunResmi(urun) {
 // Sipariş listesi sekmeleri (20.10.2026): TÜMÜ + her liste (KAYNAK). Son seçilen sekme hatırlanır.
 let aktifSekme = 'TUMU';
 try { aktifSekme = localStorage.getItem('mobiks_sekme') || 'TUMU'; } catch (e) {}
-function sekmeAdi(k) { return k === 'TUMU' ? 'TÜMÜ' : (k === 'LİSTE' ? 'DEVAM EDEN' : k); }
+function sekmeAdi(k) { return k === 'TUMU' ? 'TÜMÜ' : (k === 'LİSTE' ? 'DEVAM EDEN' : String(k).replace(/^SİP\s*/, '')); }
 function sekmeSirasi(k) {
   if (k === 'LİSTE') return '0';
   const m = String(k).match(/(\d{2})\.(\d{2})/);
