@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#0f1419">
+<title>MOBIKS Paketleme</title>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+:root{--bg:#0f1419;--panel:#1a2129;--panel2:#222b35;--border:#2f3a46;--text:#e6edf3;--muted:#8b98a5;--accent:#60a5fa;--green:#34d399;--red:#f87171;--yellow:#fbbf24}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:12px;min-height:100vh;font-size:15px}
+.wrap{max-width:560px;margin:0 auto}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+h1{font-size:20px}
+.sub{font-size:12px;color:var(--muted)}
+.btn{border:1px solid var(--border);background:var(--panel2);color:var(--text);border-radius:10px;padding:10px 14px;font-size:14px;font-weight:700;cursor:pointer}
+.btn-big{width:100%;padding:20px;font-size:20px;border-radius:14px;background:var(--accent);border-color:var(--accent);color:#0f1419;font-weight:900}
+.btn-ok{width:100%;padding:18px;font-size:19px;border-radius:14px;background:var(--green);border-color:var(--green);color:#0f1419;font-weight:900;margin-top:12px}
+.btn:disabled{opacity:.5}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px}
+#reader{width:100%;border-radius:12px;overflow:hidden;margin-top:10px}
+.urun{font-size:22px;font-weight:900;margin:6px 0 10px}
+.grid{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:15px}
+.grid .k{color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;padding-top:3px}
+.adet-row{display:flex;align-items:center;gap:10px;margin-top:14px}
+.adet-row input{width:110px;font-size:26px;font-weight:900;text-align:center;padding:10px;border-radius:12px;border:2px solid var(--accent);background:var(--bg);color:var(--text)}
+.adet-row .pm{width:54px;height:54px;font-size:26px;border-radius:12px}
+.durum{display:inline-block;padding:4px 10px;border-radius:8px;font-size:12px;font-weight:800;background:var(--panel2);color:var(--muted)}
+.durum.paket{background:rgba(52,211,153,.18);color:var(--green)}
+.uyari{background:rgba(251,191,36,.12);border:1px solid var(--yellow);color:var(--yellow);border-radius:10px;padding:10px;margin-top:10px;font-size:13px}
+.hata{background:rgba(248,113,113,.12);border:1px solid var(--red);color:var(--red);border-radius:10px;padding:10px;margin-top:10px;font-size:14px}
+.basari{text-align:center;font-size:22px;font-weight:900;color:var(--green);padding:18px 0}
+input.ara{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:15px}
+.liste div{padding:10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:14px}
+.liste div:active{background:var(--panel2)}
+.gecmis{font-size:13px;color:var(--muted)}
+.gecmis div{padding:5px 0;border-bottom:1px dashed var(--border)}
+.pin input{width:100%;font-size:28px;text-align:center;letter-spacing:10px;padding:12px;border-radius:12px;border:2px solid var(--accent);background:var(--bg);color:var(--text)}
+details summary{cursor:pointer;color:var(--muted);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div><h1>📦 MOBIKS Paketleme</h1><div class="sub" id="durum-yazi">Bağlanıyor...</div></div>
+  <button class="btn" id="cikis-btn" onclick="cikis()" style="display:none">Çıkış</button>
+</header>
+
+<div class="panel pin" id="giris" style="display:none">
+  <div style="font-weight:800;margin-bottom:8px">🔑 Paketleme şifresi</div>
+  <input type="password" inputmode="numeric" maxlength="4" id="pin-input" placeholder="••••">
+  <button class="btn-ok" onclick="girisYap()">Giriş</button>
+  <div id="giris-hata"></div>
+</div>
+
+<div id="ana" style="display:none">
+  <button class="btn-big" id="okut-btn" onclick="okutBaslat()">📷 QR OKUT</button>
+  <div id="reader"></div>
+  <div id="sonuc"></div>
+
+  <div class="panel" style="margin-top:12px">
+    <details>
+      <summary>QR'sız etiket: elle ara</summary>
+      <input class="ara" id="ara" placeholder="Sipariş no, müşteri no, ürün, kumaş..." oninput="araCiz()" style="margin-top:10px">
+      <div class="liste" id="ara-liste"></div>
+    </details>
+  </div>
+
+  <div class="panel">
+    <div style="font-weight:800;margin-bottom:6px">Bugün paketlenenler</div>
+    <div class="gecmis" id="gecmis"></div>
+  </div>
+</div>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbzb_XjLTs987EBO4rNucgWVUYD_ZAw5XlcH5OVoT7cEIra5FN2kjiRh36W0LJPa5soDeQ/exec';
+const ls = {
+  get(k, v) { try { return localStorage.getItem(k) ?? v; } catch (e) { return v; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+let PIN = ls.get('mobiks_paket_pin', '');
+let DATA = [];
+let okuyucu = null;
+const $ = id => document.getElementById(id);
+const bugun = () => new Date().toISOString().slice(0, 10);
+const norm = s => String(s ?? '').toLocaleUpperCase('tr-TR').replace(/\s+/g, '');
+const musNorm = s => { const t = norm(s); return /^\d+$/.test(t) ? t.replace(/^0+/, '') : t; };
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function api(params) {
+  const u = API_URL + '?' + new URLSearchParams(params).toString();
+  for (let i = 0; i < 4; i++) {
+    try { const r = await fetch(u); return await r.json(); }
+    catch (e) { await new Promise(x => setTimeout(x, 1500)); }
+  }
+  throw new Error('Sunucuya ulaşılamadı, tekrar dene');
+}
+
+async function yukle() {
+  $('durum-yazi').textContent = 'Liste yükleniyor...';
+  const j = await api({action: 'list'});
+  DATA = j.rows || [];
+  $('durum-yazi').textContent = DATA.length + ' açık ürün · ' + new Date().toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'});
+}
+
+function ekranAyarla() {
+  const girisli = !!PIN;
+  $('giris').style.display = girisli ? 'none' : 'block';
+  $('ana').style.display = girisli ? 'block' : 'none';
+  $('cikis-btn').style.display = girisli ? 'inline-block' : 'none';
+  gecmisCiz();
+}
+
+async function girisYap() {
+  const p = $('pin-input').value.trim();
+  $('giris-hata').innerHTML = '';
+  try {
+    const j = await api({action: 'verify', pin: p});
+    if (!j.ok || j.name !== 'Paket') { $('giris-hata').innerHTML = '<div class="hata">Şifre yanlış</div>'; return; }
+    PIN = p; ls.set('mobiks_paket_pin', p); ekranAyarla();
+  } catch (e) { $('giris-hata').innerHTML = '<div class="hata">' + esc(e.message) + '</div>'; }
+}
+function cikis() { PIN = ''; ls.del('mobiks_paket_pin'); ekranAyarla(); }
+
+// --- QR ---
+async function okutBaslat() {
+  $('sonuc').innerHTML = '';
+  if (okuyucu) { try { await okuyucu.stop(); } catch (e) {} }
+  okuyucu = new Html5Qrcode('reader');
+  $('okut-btn').disabled = true;
+  try {
+    await okuyucu.start({facingMode: 'environment'}, {fps: 10, qrbox: 240},
+      async metin => { try { await okuyucu.stop(); } catch (e) {} $('reader').innerHTML = ''; $('okut-btn').disabled = false; qrIsle(metin); },
+      () => {});
+  } catch (e) {
+    $('okut-btn').disabled = false;
+    $('sonuc').innerHTML = '<div class="hata">Kamera açılamadı: ' + esc(e) + '<br>Tarayıcıya kamera izni ver.</div>';
+  }
+}
+
+async function qrIsle(metin) {
+  const p = String(metin).split('|');
+  if (p[0] !== 'MBK1' || p.length < 5) { $('sonuc').innerHTML = '<div class="hata">Bu bir MOBIKS koli etiketi QR\'ı değil.</div>'; return; }
+  const [, sip, mus, urun, kumas] = p;
+  try { await yukle(); } catch (e) {}
+  let aday = DATA.filter(d => norm(d.SIP_NO) === norm(sip) && musNorm(d.MUSTERI) === musNorm(mus) && norm(d.URUN) === norm(urun));
+  const tam = aday.filter(d => norm(d.KUMAS) === norm(kumas));
+  if (tam.length) aday = tam;
+  if (!aday.length) {
+    $('sonuc').innerHTML = '<div class="hata">Bu ürün açık listede yok (gönderilmiş ya da listeden çıkmış olabilir).<br><b>' +
+      esc(sip + ' · ' + mus + ' · ' + urun + ' · ' + kumas) + '</b></div>';
+    return;
+  }
+  const bekleyen = aday.filter(d => !d.PAKETLENDI_TARIH);
+  kartGoster((bekleyen.length ? bekleyen : aday)[0], aday.length > 1 && tam.length === 0);
+}
+
+// --- ürün kartı + işaretleme ---
+let SECILI = null;
+function kartGoster(d, belirsiz) {
+  SECILI = d;
+  const kalan = Number(d.KALAN || d.ADET || 0);
+  const paketli = !!d.PAKETLENDI_TARIH;
+  $('sonuc').innerHTML =
+    '<div class="panel" style="margin-top:12px">' +
+    '<span class="durum' + (paketli ? ' paket' : '') + '">' + (paketli ? '✓ Zaten paketlendi: ' + esc(String(d.PAKETLENDI_TARIH).slice(0, 16)) : 'Paketlenmedi') + '</span>' +
+    '<div class="urun">' + esc(d.URUN) + '</div>' +
+    '<div class="grid">' +
+    '<div class="k">Sipariş</div><div>' + esc(d.SIP_NO) + '</div>' +
+    '<div class="k">Müşteri</div><div>' + esc(d.MUSTERI) + '</div>' +
+    '<div class="k">Kumaş</div><div>' + esc(d.KUMAS) + '</div>' +
+    '<div class="k">Cila</div><div>' + esc(d.CILA || '-') + '</div>' +
+    '<div class="k">Bekleyen</div><div><b>' + kalan + ' adet</b></div>' +
+    '</div>' +
+    (belirsiz ? '<div class="uyari">Kumaş tam eşleşmedi, ürünü kontrol et.</div>' : '') +
+    '<div class="adet-row"><button class="btn pm" onclick="adetDegis(-1)">−</button>' +
+    '<input type="number" inputmode="numeric" id="adet" value="' + kalan + '" min="1">' +
+    '<button class="btn pm" onclick="adetDegis(1)">+</button><span class="sub">adet koli</span></div>' +
+    '<button class="btn-ok" id="isaretle-btn" onclick="isaretle()">✓ PAKETLENDİ</button>' +
+    '<button class="btn" style="width:100%;margin-top:8px" onclick="$(\'sonuc\').innerHTML=\'\'">Vazgeç</button>' +
+    '</div>';
+  window.scrollTo(0, document.getElementById('sonuc').offsetTop - 10);
+}
+function adetDegis(n) { const i = $('adet'); i.value = Math.max(1, (Number(i.value) || 0) + n); }
+
+async function isaretle() {
+  const d = SECILI; if (!d) return;
+  const adet = Number($('adet').value) || 0;
+  const kalan = Number(d.KALAN || d.ADET || 0);
+  if (adet < 1) return;
+  if (adet < kalan && !confirm(adet + ' / ' + kalan + ' adet paketlendi. Ürün "paketlendi" olarak işaretlenecek, devam?')) return;
+  $('isaretle-btn').disabled = true; $('isaretle-btn').textContent = 'Kaydediliyor...';
+  try {
+    const j = await api({action: 'update', id: d.ID, stage: 'paket', value: 'true', pin: PIN});
+    if (j.error) throw new Error(j.error);
+    const g = JSON.parse(ls.get('mobiks_paket_gecmis', '[]'));
+    g.unshift({t: new Date().toISOString(), sip: d.SIP_NO, mus: d.MUSTERI, urun: d.URUN, kumas: d.KUMAS, adet, kalan});
+    ls.set('mobiks_paket_gecmis', JSON.stringify(g.slice(0, 200)));
+    $('sonuc').innerHTML = '<div class="panel basari">✓ ' + esc(d.URUN) + '<br><span style="font-size:16px">' + adet + ' adet paketlendi</span></div>';
+    gecmisCiz();
+    yukle().catch(() => {});
+  } catch (e) {
+    $('isaretle-btn').disabled = false; $('isaretle-btn').textContent = '✓ PAKETLENDİ';
+    $('sonuc').insertAdjacentHTML('beforeend', '<div class="hata">' + esc(e.message) + '</div>');
+    if (String(e.message).includes('Yetki')) cikis();
+  }
+}
+
+function gecmisCiz() {
+  const g = JSON.parse(ls.get('mobiks_paket_gecmis', '[]')).filter(x => x.t.slice(0, 10) === bugun());
+  $('gecmis').innerHTML = g.length ? g.map(x =>
+    '<div>' + new Date(x.t).toLocaleTimeString('tr-TR', {hour: '2-digit', minute: '2-digit'}) + ' · <b>' + x.adet + (x.adet < x.kalan ? '/' + x.kalan : '') +
+    ' ad.</b> ' + esc(x.urun) + ' · ' + esc(x.kumas) + ' · ' + esc(x.sip) + ' ' + esc(x.mus) + '</div>').join('') +
+    '<div style="border:0;padding-top:8px"><b>Toplam: ' + g.reduce((a, x) => a + x.adet, 0) + ' adet</b></div>' : 'Henüz yok';
+}
+
+function araCiz() {
+  const q = $('ara').value.toLocaleLowerCase('tr-TR').trim();
+  if (q.length < 2) { $('ara-liste').innerHTML = ''; return; }
+  const s = DATA.filter(d => [d.SIP_NO, d.MUSTERI, d.URUN, d.KUMAS].join(' ').toLocaleLowerCase('tr-TR').includes(q)).slice(0, 30);
+  $('ara-liste').innerHTML = s.map(d => '<div data-id="' + esc(d.ID) + '">' + (d.PAKETLENDI_TARIH ? '✓ ' : '') + '<b>' + esc(d.URUN) + '</b> · ' +
+    esc(d.KUMAS) + '<br><span class="sub">' + esc(d.SIP_NO) + ' · ' + esc(d.MUSTERI) + ' · ' + (d.KALAN || d.ADET) + ' adet</span></div>').join('') || '<div>Bulunamadı</div>';
+  $('ara-liste').querySelectorAll('[data-id]').forEach(el => el.onclick = () => kartGoster(DATA.find(d => d.ID === el.dataset.id), false));
+}
+
+ekranAyarla();
+yukle().catch(e => { $('durum-yazi').textContent = e.message; });
+</script>
+</body>
+</html>
