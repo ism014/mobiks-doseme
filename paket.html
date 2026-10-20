@@ -160,12 +160,14 @@ async function qrIsle(metin) {
 
 // --- ürün kartı + işaretleme ---
 let SECILI = null;
+let SECILI_MAX = 0;
 function kartGoster(d, belirsiz) {
   SECILI = d;
   const kalan = Number(d.KALAN || d.ADET || 0);
   const paketli = !!d.PAKETLENDI_TARIH;
   const kismi = Number(d.PAKET_ADET || 0);
-  const kalanKoli = Math.max(kalan - kismi, 0);
+  const kalanKoli = paketli ? 0 : Math.max(kalan - kismi, 0);   // en fazla bu kadar paketlenebilir
+  SECILI_MAX = kalanKoli;
   $('sonuc').innerHTML =
     '<div class="panel" style="margin-top:12px">' +
     '<span class="durum' + (paketli ? ' paket' : '') + '">' + (paketli ? '✓ Zaten paketlendi: ' + esc(String(d.PAKETLENDI_TARIH).slice(0, 16)) : (kismi ? '📦 Kısmi: ' + kismi + ' / ' + kalan + ' paketli' : 'Paketlenmedi')) + '</span>' +
@@ -180,20 +182,23 @@ function kartGoster(d, belirsiz) {
     '</div>' +
     (belirsiz ? '<div class="uyari">Kumaş tam eşleşmedi, ürünü kontrol et.</div>' : '') +
     '<div class="adet-row"><button class="btn pm" onclick="adetDegis(-1)">−</button>' +
-    '<input type="number" inputmode="numeric" id="adet" value="' + (kalanKoli || kalan) + '" min="1">' +
+    '<input type="number" inputmode="numeric" id="adet" value="' + kalanKoli + '" min="1" max="' + kalanKoli + '" oninput="adetSinirla()">' +
     '<button class="btn pm" onclick="adetDegis(1)">+</button><span class="sub">adet koli</span></div>' +
-    '<button class="btn-ok" id="isaretle-btn" onclick="isaretle()">✓ PAKETLENDİ</button>' +
+    (kalanKoli ? '' : '<div class="uyari">Bu ürünün tamamı paketli, eklenecek adet yok. Yanlışsa "Paketli adedi düzelt".</div>') +
+    '<button class="btn-ok" id="isaretle-btn" onclick="isaretle()"' + (kalanKoli ? '' : ' disabled') + '>✓ PAKETLENDİ</button>' +
     '<button class="btn" style="width:100%;margin-top:8px" onclick="duzelt()">✎ Paketli adedi düzelt</button>' +
     '<button class="btn" style="width:100%;margin-top:8px" onclick="$(\'sonuc\').innerHTML=\'\'">Vazgeç</button>' +
     '</div>';
   window.scrollTo(0, document.getElementById('sonuc').offsetTop - 10);
 }
-function adetDegis(n) { const i = $('adet'); i.value = Math.max(1, (Number(i.value) || 0) + n); }
+function adetDegis(n) { const i = $('adet'); i.value = Math.min(SECILI_MAX, Math.max(1, (Number(i.value) || 0) + n)); }
+function adetSinirla() { const i = $('adet'); if (Number(i.value) > SECILI_MAX) i.value = SECILI_MAX; }
 
 async function isaretle() {
   const d = SECILI; if (!d) return;
-  const adet = Number($('adet').value) || 0;
+  const adet = Math.floor(Number($('adet').value) || 0);
   if (adet < 1) return;
+  if (adet > SECILI_MAX) { alert('En fazla ' + SECILI_MAX + ' adet girilebilir (siparişte kalan).'); $('adet').value = SECILI_MAX; return; }
   await paketGonder(d, adet, 'ekle');
 }
 
@@ -204,6 +209,7 @@ async function duzelt() {
   if (v === null) return;
   const n = Math.floor(Number(v));
   if (!(n >= 0)) { alert('Sayı gir'); return; }
+  if (n > kalan) { alert('Toplam en fazla ' + kalan + ' olabilir (siparişteki adet).'); return; }
   await paketGonder(d, n, 'set');
 }
 
