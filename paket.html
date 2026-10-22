@@ -119,7 +119,7 @@ async function girisYap() {
   $('giris-hata').innerHTML = '';
   try {
     const j = await api({action: 'verify', pin: p});
-    if (!j.ok || j.name !== 'Paket') { $('giris-hata').innerHTML = '<div class="hata">Şifre yanlış</div>'; return; }
+    if (!j.ok || !/^Paket/.test(j.name || '')) { $('giris-hata').innerHTML = '<div class="hata">Şifre yanlış</div>'; return; }
     PIN = p; ls.set('mobiks_paket_pin', p); ekranAyarla();
   } catch (e) { $('giris-hata').innerHTML = '<div class="hata">' + esc(e.message) + '</div>'; }
 }
