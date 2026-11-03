@@ -1,6 +1,6 @@
 // MOBİKS uygulama servisi (03.11.2026). Sayfalar her zaman ÖNCE internetten alınır (güncel kalsın);
 // internet yoksa son kaydedilen kopya açılır. Veri (Google Apps Script) asla önbelleğe alınmaz.
-const SURUM = "mobiks-v1";
+const SURUM = "mobiks-v2";
 const KABUK = ["./index.html", "./paket.html", "./manifest.json", "./manifest-paket.json",
   "./ikon-usta-192.png", "./ikon-paket-192.png"];
 

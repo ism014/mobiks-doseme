@@ -1,18 +1,30 @@
 {
-  "id": "./paket.html",
-  "name": "MOBİKS Paketleme",
-  "short_name": "MOBİKS Paket",
-  "description": "MOBİKS paketleme — koli etiketindeki QR'ı okut, paketlendi işaretle",
-  "lang": "tr",
+  "name": "MOBIKS Paketleme",
+  "short_name": "MOBIKS Paket",
+  "description": "MOBIKS paketleme - koli etiketindeki QR'i okut, paketlendi isaretle",
   "start_url": "./paket.html",
-  "scope": "./paket",
+  "scope": "./paket.html",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#0f1419",
   "theme_color": "#0f1419",
   "icons": [
-    {"src": "ikon-paket-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
-    {"src": "ikon-paket-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
-    {"src": "ikon-paket-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+    {
+      "src": "ikon-paket-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "ikon-paket-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "ikon-paket-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
