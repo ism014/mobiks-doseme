@@ -14,7 +14,7 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>MOBIKS Döşeme Takip v10</title>
+<title>MOBIKS Döşeme Takip v10.1</title>
 <style>
 :root{--bg:#0b0f1a;--panel:#151b2b;--panel2:#1d2438;--border:#2a3350;--text:#eef1f7;--muted:#8d97b3;--accent:#4aa8ff;--green:#34d399;--red:#fb7185;--orange:#fb923c;--yellow:#fbbf24;--purple:#a78bfa;--mavi:#3b82f6;--pink:#f472b6}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -247,8 +247,8 @@ h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:19px;font
   <div class="kpi k2" data-filter="kesildi"><span class="kpi-ikon">✂️</span><div class="kpi-num" id="kpi-kesim">0</div><div class="kpi-lbl">Kesildi</div></div>
   <div class="kpi k3" data-filter="dikildi"><span class="kpi-ikon">🧵</span><div class="kpi-num" id="kpi-dikim">0</div><div class="kpi-lbl">Dikildi</div></div>
   <div class="kpi k4" data-filter="dosendi"><span class="kpi-ikon">🪑</span><div class="kpi-num" id="kpi-doseme">0</div><div class="kpi-lbl">Döşendi</div></div>
-  <div class="kpi k5" data-filter="etiket"><span class="kpi-ikon">🏷️</span><div class="kpi-num" id="kpi-etiket">0</div><div class="kpi-lbl">Etiketli</div></div>
-  <div class="kpi k6" data-filter="bitti"><span class="kpi-ikon">📦</span><div class="kpi-num" id="kpi-bitti">0</div><div class="kpi-lbl">Paketlendi</div></div>
+  <div class="kpi k5" data-filter="etiket"><span class="kpi-ikon">🏷️</span><div class="kpi-num" id="kpi-etiket">0</div><div class="kpi-lbl">Etiketli adet</div></div>
+  <div class="kpi k6" data-filter="bitti"><span class="kpi-ikon">📦</span><div class="kpi-num" id="kpi-bitti">0</div><div class="kpi-lbl">Paket adet</div></div>
 </div>
 <div class="genel-bar" id="genel-bar"></div>
 <div class="genel-yazi"><span id="genel-sol"></span><span id="genel-sag"></span></div>
@@ -590,12 +590,16 @@ function render() {
   const SDATA = aktifSekme === 'TUMU' ? DATA : DATA.filter(d => (d.KAYNAK || 'LİSTE') === aktifSekme);
   const sayim = {bekliyor:0, kesildi:0, dikildi:0, dosendi:0, etiket:0, bitti:0};
   SDATA.forEach(d => sayim[durumKat(d)]++);
+  // 05.11.2026 (Eren): etiketli ve paketlenen kalem değil ADET olarak görünsün
+  const adetOf = (d) => Number(d.KALAN !== undefined && d.KALAN !== '' ? d.KALAN : d.ADET) || 0;
+  const adetSay = {etiket: 0, bitti: 0};
+  SDATA.forEach(d => { const k = durumKat(d); if (k in adetSay) adetSay[k] += adetOf(d); });
   sayac($('kpi-bekliyor'), sayim.bekliyor);
   sayac($('kpi-kesim'), sayim.kesildi);
   sayac($('kpi-dikim'), sayim.dikildi);
   sayac($('kpi-doseme'), sayim.dosendi);
-  sayac($('kpi-etiket'), sayim.etiket);
-  sayac($('kpi-bitti'), sayim.bitti);
+  sayac($('kpi-etiket'), adetSay.etiket);
+  sayac($('kpi-bitti'), adetSay.bitti);
 
   // Genel ilerleme çubuğu: her ürün kaç aşama ilerlemiş
   const toplam = SDATA.length || 1;
@@ -606,7 +610,7 @@ function render() {
   const adim = SDATA.reduce((t, d) => t + asamaSayisi(d), 0);
   const yuzde = SDATA.length ? Math.round(adim / (SDATA.length * ASAMALAR.length) * 100) : 0;
   $('genel-sol').innerHTML = SDATA.length + ' ürün · ilerleme <b>%' + yuzde + '</b>';
-  $('genel-sag').textContent = '📦 ' + sayim.bitti + ' paketlendi';
+  $('genel-sag').textContent = '📦 ' + adetSay.bitti + ' adet paketlendi';
 
   // Yeni gelen kumaş düğmesi
   const yeniKumas = SDATA.filter(d => { const k = kumasGelis(d); return k && k.yeni; }).length;
